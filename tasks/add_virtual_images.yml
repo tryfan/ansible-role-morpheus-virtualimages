@@ -15,7 +15,7 @@
       meta: end_play
   when: (existing_image['json']['meta']['total'] | int > 1)
 
-- name: Create Virtual Image json
+- name: Create Virtual Image json for AMI
   set_fact:
     virtualimage_json:
       virtualImage:
@@ -24,6 +24,17 @@
         isCloudInit: "{{ item.isCloudInit }}"
         installAgent: "{{ item.installAgent }}"
         externalId: "{{ item.externalId }}"
+  when: item.imageType == "ami"
+
+- name: Create Virtual Image json for VMDK
+  set_fact:
+    virtualimage_json:
+      virtualImage:
+        name: "{{ item.name }}"
+        imageType: "{{ item.imageType }}"
+        isCloudInit: "{{ item.isCloudInit }}"
+        installAgent: "{{ item.installAgent }}"
+  when: item.imageType == "vmdk"
 
 - name: Create Virtual Image
   uri:
@@ -36,3 +47,12 @@
     validate_certs: "{{ verify_ssl }}"
   register: newvirtualimage_out
   when: existing_image['json']['meta']['total'] | int == 0
+
+- name: Upload Virtual Image via URL
+  uri:
+    url: "{{ morpheus_api }}/virtual-images/{{ newvirtualimage_out['json']['virtualImage']['id'] }}/upload?url={{ item.url }}"
+    method: post
+    headers:
+      authorization: "BEARER {{ morpheus_token }}"
+    validate_certs: "{{ verify_ssl }}"
+  when: (item.url is defined) and (existing_image['json']['meta']['total'] | int == 0)
